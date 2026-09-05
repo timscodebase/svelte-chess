@@ -1043,8 +1043,8 @@ export namespace Chess {
 	export function getMoves(
 		game: Chess.State,
 		{
-			piece = undefined,
-			square = undefined
+			piece,
+			square
 		}: {
 			piece?: PieceType;
 			square?: Square | SquareIndex;
@@ -1191,7 +1191,7 @@ export namespace Chess {
 			const position = fen.split(' ')[0];
 			let squareIndex = 0;
 
-			const board: Board = new Array(128).fill(null);
+			const board: Board = Array.from({ length: 128 }, () => null);
 
 			let peiceId = 1;
 

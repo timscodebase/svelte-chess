@@ -9,7 +9,7 @@
 
 	const { game }: Props = $props();
 
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement>();
 	let scene: THREE.Scene;
 	let camera: THREE.PerspectiveCamera;
 	let renderer: THREE.WebGLRenderer;
@@ -101,7 +101,11 @@
 	const DRAG_THRESHOLD_PX = 6;
 
 	// Helper for tiered Staunton base lathe points
-	function createBasePoints(baseRadius: number, topRadius: number, height: number): THREE.Vector2[] {
+	function createBasePoints(
+		baseRadius: number,
+		topRadius: number,
+		height: number
+	): THREE.Vector2[] {
 		return [
 			new THREE.Vector2(0, 0),
 			new THREE.Vector2(baseRadius, 0),

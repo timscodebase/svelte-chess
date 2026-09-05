@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vite-plus/test';
 import { ChessGameStore } from './game-state.svelte';
 
 describe('ChessGameStore Move Limitation and Rules', () => {

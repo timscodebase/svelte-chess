@@ -1,5 +1,6 @@
-import { page } from 'vitest/browser';
-import { describe, expect, it, vi } from 'vitest';
+/* eslint-disable @typescript-eslint/unbound-method */
+import { page } from 'vite-plus/test/browser';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import ChessClockOverlay from './ChessClockOverlay.svelte';
 import type { ChessGameStore } from '../chess/game-state.svelte';

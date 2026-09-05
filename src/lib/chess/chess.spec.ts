@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import { Chess, PieceType, Color, Ox88, MoveFlags, posToOx88, ox88ToPos } from './chess';
 
 describe('Chess Engine Rules Enforcement', () => {
