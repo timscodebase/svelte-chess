@@ -43,6 +43,38 @@
 		side: THREE.DoubleSide
 	});
 
+	// Board edge coordinates (numbers 1-8 and letters a-h)
+	const boardLabels: THREE.Mesh[] = [];
+	const labelTextureMap = new Map<string, THREE.CanvasTexture>();
+
+	function getLabelTexture(text: string): THREE.CanvasTexture {
+		let tex = labelTextureMap.get(text);
+		if (!tex) {
+			const canvas = document.createElement('canvas');
+			canvas.width = 128;
+			canvas.height = 128;
+			const ctx = canvas.getContext('2d');
+			if (ctx) {
+				ctx.clearRect(0, 0, 128, 128);
+				ctx.fillStyle = '#e2d6b5';
+				ctx.font =
+					'bold 74px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+				ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+				ctx.shadowBlur = 6;
+				ctx.shadowOffsetX = 2;
+				ctx.shadowOffsetY = 2;
+				ctx.fillText(text, 64, 64);
+			}
+			tex = new THREE.CanvasTexture(canvas);
+			tex.colorSpace = THREE.SRGBColorSpace;
+			tex.minFilter = THREE.LinearFilter;
+			labelTextureMap.set(text, tex);
+		}
+		return tex;
+	}
+
 	// Materials
 	const lightSquareMat = new THREE.MeshStandardMaterial({
 		color: 0xe2d6b5,
@@ -203,10 +235,10 @@
 
 		// 4. Board Platform & Squares
 		const rim = new THREE.Mesh(
-			new THREE.BoxGeometry(8.6, 0.25, 8.6),
+			new THREE.BoxGeometry(9.3, 0.25, 9.3),
 			new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.4 })
 		);
-		rim.position.y = -0.125;
+		rim.position.y = -0.05;
 		rim.receiveShadow = true;
 		scene.add(rim);
 
@@ -222,6 +254,71 @@
 				scene.add(tile);
 				squareMeshes.push(tile);
 			}
+		}
+
+		// 4b. Board Edge Coordinate Labels (Files a-h & Ranks 1-8)
+		const labelGeom = new THREE.PlaneGeometry(0.48, 0.48);
+		const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+		const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
+		const labelY = 0.078;
+		const borderOffset = 4.33;
+
+		// Files (a-h) along Rank 1 (z = -borderOffset) and Rank 8 (z = +borderOffset)
+		for (let c = 0; c < 8; c++) {
+			const file = files[c];
+			const x = c - 3.5;
+			const tex = getLabelTexture(file);
+			const mat = new THREE.MeshBasicMaterial({
+				map: tex,
+				transparent: true,
+				opacity: 0.92,
+				side: THREE.DoubleSide
+			});
+
+			// Rank 1 border (readable from White perspective)
+			const meshR1 = new THREE.Mesh(labelGeom, mat);
+			meshR1.rotation.x = -Math.PI / 2;
+			meshR1.rotation.z = Math.PI;
+			meshR1.position.set(x, labelY, -borderOffset);
+			scene.add(meshR1);
+			boardLabels.push(meshR1);
+
+			// Rank 8 border (readable from Black perspective)
+			const meshR8 = new THREE.Mesh(labelGeom, mat);
+			meshR8.rotation.x = -Math.PI / 2;
+			meshR8.rotation.z = 0;
+			meshR8.position.set(x, labelY, borderOffset);
+			scene.add(meshR8);
+			boardLabels.push(meshR8);
+		}
+
+		// Ranks (1-8) along File a (x = -borderOffset) and File h (x = +borderOffset)
+		for (let r = 0; r < 8; r++) {
+			const rank = ranks[r];
+			const z = r - 3.5;
+			const tex = getLabelTexture(rank);
+			const mat = new THREE.MeshBasicMaterial({
+				map: tex,
+				transparent: true,
+				opacity: 0.92,
+				side: THREE.DoubleSide
+			});
+
+			// File a border (readable from left side)
+			const meshFa = new THREE.Mesh(labelGeom, mat);
+			meshFa.rotation.x = -Math.PI / 2;
+			meshFa.rotation.z = -Math.PI / 2;
+			meshFa.position.set(-borderOffset, labelY, z);
+			scene.add(meshFa);
+			boardLabels.push(meshFa);
+
+			// File h border (readable from right side)
+			const meshFh = new THREE.Mesh(labelGeom, mat);
+			meshFh.rotation.x = -Math.PI / 2;
+			meshFh.rotation.z = Math.PI / 2;
+			meshFh.position.set(borderOffset, labelY, z);
+			scene.add(meshFh);
+			boardLabels.push(meshFh);
 		}
 
 		// 5. Selection Ring, Check Ring, and Indicators
@@ -331,6 +428,16 @@
 				scene.remove(mesh);
 			}
 			moveIndicatorMeshes.length = 0;
+			for (const label of boardLabels) {
+				scene.remove(label);
+				label.geometry.dispose();
+				(label.material as THREE.Material).dispose();
+			}
+			boardLabels.length = 0;
+			for (const tex of labelTextureMap.values()) {
+				tex.dispose();
+			}
+			labelTextureMap.clear();
 		};
 	});
 
