@@ -18,6 +18,7 @@
 
 	// Board mesh references
 	const squareMeshes: THREE.Mesh[] = [];
+	const boardFrameMeshes: THREE.Mesh[] = [];
 	const pieceMeshMap = new Map<string, THREE.Group>();
 	let selectionHighlightRing: THREE.Mesh;
 	let checkHighlightRing: THREE.Mesh;
@@ -85,79 +86,260 @@
 		roughness: 0.6
 	});
 	const whitePieceMat = new THREE.MeshStandardMaterial({
-		color: 0xf8fafc,
-		roughness: 0.25,
-		metalness: 0.1
+		color: 0xfcf9f2,
+		roughness: 0.18,
+		metalness: 0.08
 	});
 	const blackPieceMat = new THREE.MeshStandardMaterial({
-		color: 0x1e293b,
-		roughness: 0.35,
-		metalness: 0.2
+		color: 0x1c2330,
+		roughness: 0.28,
+		metalness: 0.18
 	});
 
 	// Drag-vs-click discriminator state
 	let pointerDownCoord = { x: 0, y: 0 };
 	const DRAG_THRESHOLD_PX = 6;
 
+	// Helper for tiered Staunton base lathe points
+	function createBasePoints(baseRadius: number, topRadius: number, height: number): THREE.Vector2[] {
+		return [
+			new THREE.Vector2(0, 0),
+			new THREE.Vector2(baseRadius, 0),
+			new THREE.Vector2(baseRadius, 0.03),
+			new THREE.Vector2(baseRadius * 0.94, 0.05),
+			new THREE.Vector2(baseRadius * 0.86, 0.085),
+			new THREE.Vector2(baseRadius * 0.9, 0.115),
+			new THREE.Vector2(baseRadius * 0.78, 0.138),
+			new THREE.Vector2(topRadius, height)
+		];
+	}
+
 	function createPieceGeometry(type: PieceType): THREE.BufferGeometry[] {
 		const parts: THREE.BufferGeometry[] = [];
-		const base = new THREE.CylinderGeometry(0.32, 0.38, 0.12, 24);
-		parts.push(base);
+		const segs = 28;
 
 		switch (type) {
 			case 'pawn': {
-				const body = new THREE.CylinderGeometry(0.12, 0.26, 0.45, 16);
-				body.translate(0, 0.28, 0);
-				const head = new THREE.SphereGeometry(0.18, 16, 16);
-				head.translate(0, 0.56, 0);
-				parts.push(body, head);
+				// Tiered base & sculpted stem with neck collar
+				const points = [
+					...createBasePoints(0.34, 0.18, 0.14),
+					new THREE.Vector2(0.17, 0.18),
+					new THREE.Vector2(0.13, 0.28),
+					new THREE.Vector2(0.1, 0.38),
+					new THREE.Vector2(0.15, 0.44),
+					new THREE.Vector2(0.155, 0.47),
+					new THREE.Vector2(0.11, 0.5)
+				];
+				parts.push(new THREE.LatheGeometry(points, segs));
+
+				// Spherical head
+				const head = new THREE.SphereGeometry(0.165, 24, 20);
+				head.translate(0, 0.64, 0);
+				parts.push(head);
 				break;
 			}
 			case 'rook': {
-				const body = new THREE.CylinderGeometry(0.22, 0.28, 0.6, 20);
-				body.translate(0, 0.36, 0);
-				const top = new THREE.CylinderGeometry(0.26, 0.22, 0.2, 16);
-				top.translate(0, 0.72, 0);
-				parts.push(body, top);
+				// Castle tower base & flaring parapet corbel
+				const points = [
+					...createBasePoints(0.36, 0.24, 0.15),
+					new THREE.Vector2(0.23, 0.2),
+					new THREE.Vector2(0.21, 0.4),
+					new THREE.Vector2(0.195, 0.58),
+					new THREE.Vector2(0.235, 0.65),
+					new THREE.Vector2(0.265, 0.7),
+					new THREE.Vector2(0.25, 0.73),
+					new THREE.Vector2(0.26, 0.76),
+					new THREE.Vector2(0, 0.76)
+				];
+				parts.push(new THREE.LatheGeometry(points, segs));
+
+				// Parapet battlements (crenels)
+				const crenelGeom = new THREE.BoxGeometry(0.13, 0.13, 0.13);
+				for (let i = 0; i < 4; i++) {
+					const angle = (i * Math.PI) / 2 + Math.PI / 4;
+					const g = crenelGeom.clone();
+					g.translate(Math.cos(angle) * 0.19, 0.825, Math.sin(angle) * 0.19);
+					parts.push(g);
+				}
+
+				// Recessed tower top floor
+				const floor = new THREE.CylinderGeometry(0.14, 0.14, 0.04, 16);
+				floor.translate(0, 0.77, 0);
+				parts.push(floor);
 				break;
 			}
 			case 'knight': {
-				const body = new THREE.CylinderGeometry(0.18, 0.28, 0.5, 16);
-				body.translate(0, 0.31, 0);
-				const head = new THREE.BoxGeometry(0.24, 0.36, 0.32);
-				head.translate(0, 0.62, 0.05);
-				parts.push(body, head);
+				// Sturdy turned base & pedestal
+				parts.push(new THREE.LatheGeometry(createBasePoints(0.36, 0.24, 0.16), segs));
+
+				const pedestal = new THREE.CylinderGeometry(0.21, 0.24, 0.08, 24);
+				pedestal.translate(0, 0.2, 0);
+				parts.push(pedestal);
+
+				// Forward-leaning arched chest & neck
+				const chest = new THREE.CylinderGeometry(0.14, 0.2, 0.32, 16);
+				chest.scale(0.85, 1.0, 1.2);
+				chest.rotateX(-0.15);
+				chest.translate(0, 0.34, 0.04);
+				parts.push(chest);
+
+				// Arched head & jaw
+				const jaw = new THREE.BoxGeometry(0.2, 0.28, 0.24);
+				jaw.rotateX(0.22);
+				jaw.translate(0, 0.54, 0.07);
+				parts.push(jaw);
+
+				// Tapered muzzle / snout
+				const snout = new THREE.CylinderGeometry(0.09, 0.14, 0.26, 12);
+				snout.scale(0.82, 1.0, 1.0);
+				snout.rotateX(Math.PI / 2.7);
+				snout.translate(0, 0.61, 0.18);
+				parts.push(snout);
+
+				// Flowing mane crest along the spine
+				const mane = new THREE.BoxGeometry(0.08, 0.36, 0.12);
+				mane.rotateX(-0.35);
+				mane.translate(0, 0.54, -0.06);
+				parts.push(mane);
+
+				// Pointed ears
+				const earL = new THREE.ConeGeometry(0.045, 0.14, 8);
+				earL.rotateZ(-0.25);
+				earL.rotateX(-0.15);
+				earL.translate(-0.065, 0.77, 0.02);
+				parts.push(earL);
+
+				const earR = new THREE.ConeGeometry(0.045, 0.14, 8);
+				earR.rotateZ(0.25);
+				earR.rotateX(-0.15);
+				earR.translate(0.065, 0.77, 0.02);
+				parts.push(earR);
+
+				// Sculpted eye mounds
+				const eyeL = new THREE.SphereGeometry(0.035, 8, 8);
+				eyeL.translate(-0.095, 0.65, 0.13);
+				parts.push(eyeL);
+
+				const eyeR = new THREE.SphereGeometry(0.035, 8, 8);
+				eyeR.translate(0.095, 0.65, 0.13);
+				parts.push(eyeR);
+
+				// Nostril flares
+				const nosL = new THREE.SphereGeometry(0.025, 8, 8);
+				nosL.translate(-0.055, 0.57, 0.29);
+				parts.push(nosL);
+
+				const nosR = new THREE.SphereGeometry(0.025, 8, 8);
+				nosR.translate(0.055, 0.57, 0.29);
+				parts.push(nosR);
 				break;
 			}
 			case 'bishop': {
-				const body = new THREE.CylinderGeometry(0.14, 0.26, 0.65, 16);
-				body.translate(0, 0.38, 0);
-				const top = new THREE.SphereGeometry(0.18, 16, 16);
-				top.scale(0.8, 1.4, 0.8);
-				top.translate(0, 0.75, 0);
-				parts.push(body, top);
+				// Slender lathe body with double collar and mitre apex
+				const points = [
+					...createBasePoints(0.36, 0.23, 0.15),
+					new THREE.Vector2(0.19, 0.2),
+					new THREE.Vector2(0.14, 0.32),
+					new THREE.Vector2(0.11, 0.44),
+					new THREE.Vector2(0.16, 0.5),
+					new THREE.Vector2(0.13, 0.53),
+					new THREE.Vector2(0.19, 0.58),
+					new THREE.Vector2(0.18, 0.61),
+					new THREE.Vector2(0.12, 0.64),
+					new THREE.Vector2(0.17, 0.72),
+					new THREE.Vector2(0.205, 0.82),
+					new THREE.Vector2(0.175, 0.92),
+					new THREE.Vector2(0.115, 1.0),
+					new THREE.Vector2(0.04, 1.05),
+					new THREE.Vector2(0, 1.07)
+				];
+				parts.push(new THREE.LatheGeometry(points, segs));
+
+				// Mitre apex finial ball
+				const ball = new THREE.SphereGeometry(0.055, 16, 16);
+				ball.translate(0, 1.11, 0);
+				parts.push(ball);
 				break;
 			}
 			case 'queen': {
-				const body = new THREE.CylinderGeometry(0.16, 0.28, 0.8, 20);
-				body.translate(0, 0.46, 0);
-				const crown = new THREE.CylinderGeometry(0.28, 0.14, 0.22, 16);
-				crown.translate(0, 0.92, 0);
-				const ball = new THREE.SphereGeometry(0.08, 12, 12);
-				ball.translate(0, 1.05, 0);
-				parts.push(body, crown, ball);
+				// Grand royal lathe body with tiered collar and fluting coronet
+				const points = [
+					...createBasePoints(0.38, 0.25, 0.16),
+					new THREE.Vector2(0.22, 0.22),
+					new THREE.Vector2(0.16, 0.38),
+					new THREE.Vector2(0.13, 0.52),
+					new THREE.Vector2(0.18, 0.58),
+					new THREE.Vector2(0.15, 0.62),
+					new THREE.Vector2(0.2, 0.66),
+					new THREE.Vector2(0.14, 0.7),
+					new THREE.Vector2(0.16, 0.78),
+					new THREE.Vector2(0.22, 0.88),
+					new THREE.Vector2(0.265, 0.98),
+					new THREE.Vector2(0.22, 1.0),
+					new THREE.Vector2(0, 1.0)
+				];
+				parts.push(new THREE.LatheGeometry(points, segs));
+
+				// 8 Coronet pearls around the rim
+				const pearlGeom = new THREE.SphereGeometry(0.038, 12, 12);
+				for (let i = 0; i < 8; i++) {
+					const angle = (i * Math.PI * 2) / 8;
+					const g = pearlGeom.clone();
+					g.translate(Math.cos(angle) * 0.245, 1.01, Math.sin(angle) * 0.245);
+					parts.push(g);
+				}
+
+				// Central royal orb finial
+				const orb = new THREE.SphereGeometry(0.08, 16, 16);
+				orb.translate(0, 1.1, 0);
+				parts.push(orb);
 				break;
 			}
 			case 'king': {
-				const body = new THREE.CylinderGeometry(0.18, 0.3, 0.9, 20);
-				body.translate(0, 0.51, 0);
-				const cap = new THREE.CylinderGeometry(0.26, 0.16, 0.2, 16);
-				cap.translate(0, 1.01, 0);
-				const crossV = new THREE.BoxGeometry(0.08, 0.22, 0.08);
-				crossV.translate(0, 1.18, 0);
-				const crossH = new THREE.BoxGeometry(0.2, 0.07, 0.08);
-				crossH.translate(0, 1.18, 0);
-				parts.push(body, cap, crossV, crossH);
+				// Majestic wide lathe body with double collar and imperial crown
+				const points = [
+					...createBasePoints(0.4, 0.27, 0.17),
+					new THREE.Vector2(0.24, 0.24),
+					new THREE.Vector2(0.18, 0.44),
+					new THREE.Vector2(0.15, 0.6),
+					new THREE.Vector2(0.21, 0.66),
+					new THREE.Vector2(0.18, 0.7),
+					new THREE.Vector2(0.24, 0.75),
+					new THREE.Vector2(0.17, 0.8),
+					new THREE.Vector2(0.22, 0.88),
+					new THREE.Vector2(0.26, 0.98),
+					new THREE.Vector2(0.24, 1.06),
+					new THREE.Vector2(0.18, 1.1),
+					new THREE.Vector2(0.08, 1.14),
+					new THREE.Vector2(0, 1.15)
+				];
+				parts.push(new THREE.LatheGeometry(points, segs));
+
+				// Finial pedestal bead
+				const bead = new THREE.SphereGeometry(0.05, 12, 12);
+				bead.translate(0, 1.18, 0);
+				parts.push(bead);
+
+				// Royal Cross Formée (Patée)
+				const crossV = new THREE.BoxGeometry(0.07, 0.2, 0.06);
+				crossV.translate(0, 1.28, 0);
+				parts.push(crossV);
+
+				const crossH = new THREE.BoxGeometry(0.18, 0.07, 0.06);
+				crossH.translate(0, 1.3, 0);
+				parts.push(crossH);
+
+				const crossTop = new THREE.BoxGeometry(0.11, 0.04, 0.06);
+				crossTop.translate(0, 1.39, 0);
+				parts.push(crossTop);
+
+				const crossL = new THREE.BoxGeometry(0.04, 0.1, 0.06);
+				crossL.translate(-0.1, 1.3, 0);
+				parts.push(crossL);
+
+				const crossR = new THREE.BoxGeometry(0.04, 0.1, 0.06);
+				crossR.translate(0.1, 1.3, 0);
+				parts.push(crossR);
 				break;
 			}
 		}
@@ -180,7 +362,7 @@
 	}
 
 	function boardToWorld(row: number, col: number): THREE.Vector3 {
-		return new THREE.Vector3(col - 3.5, 0.1, row - 3.5);
+		return new THREE.Vector3(col - 3.5, 0.08, 3.5 - row);
 	}
 
 	// Lifecycle
@@ -233,19 +415,54 @@
 		dirLight.shadow.camera.bottom = -6;
 		scene.add(dirLight);
 
-		// 4. Board Platform & Squares
-		const rim = new THREE.Mesh(
-			new THREE.BoxGeometry(9.3, 0.25, 9.3),
-			new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.4 })
-		);
-		rim.position.y = -0.05;
-		rim.receiveShadow = true;
-		scene.add(rim);
+		// 4. Board Platform (Hollow Frame + Under-plank) & Squares
+		const woodFrameMat = new THREE.MeshStandardMaterial({
+			color: 0x3d2314, // Rich walnut wood frame
+			roughness: 0.38,
+			metalness: 0.05
+		});
+		const woodBaseMat = new THREE.MeshStandardMaterial({
+			color: 0x22130a, // Dark table under-plank
+			roughness: 0.6
+		});
 
+		// Base plank strictly underneath tiles and frame (no z-fighting)
+		const basePlank = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.15, 9.6), woodBaseMat);
+		basePlank.position.y = -0.15;
+		basePlank.receiveShadow = true;
+		scene.add(basePlank);
+		boardFrameMeshes.push(basePlank);
+
+		// 4 Border rails surrounding the 8x8 squares (inner area [-4, 4] x [-4, 4] is completely clear)
+		const southRail = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.15, 0.8), woodFrameMat);
+		southRail.position.set(0, 0, 4.4);
+		southRail.receiveShadow = true;
+		scene.add(southRail);
+		boardFrameMeshes.push(southRail);
+
+		const northRail = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.15, 0.8), woodFrameMat);
+		northRail.position.set(0, 0, -4.4);
+		northRail.receiveShadow = true;
+		scene.add(northRail);
+		boardFrameMeshes.push(northRail);
+
+		const westRail = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 8.0), woodFrameMat);
+		westRail.position.set(-4.4, 0, 0);
+		westRail.receiveShadow = true;
+		scene.add(westRail);
+		boardFrameMeshes.push(westRail);
+
+		const eastRail = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 8.0), woodFrameMat);
+		eastRail.position.set(4.4, 0, 0);
+		eastRail.receiveShadow = true;
+		scene.add(eastRail);
+		boardFrameMeshes.push(eastRail);
+
+		// 64 Board square tiles
 		const tileGeom = new THREE.BoxGeometry(1, 0.15, 1);
 		for (let r = 0; r < 8; r++) {
 			for (let c = 0; c < 8; c++) {
-				const isDark = (r + c) % 2 === 1;
+				const isDark = (r + c) % 2 === 0;
 				const tile = new THREE.Mesh(tileGeom, isDark ? darkSquareMat : lightSquareMat);
 				tile.position.copy(boardToWorld(r, c));
 				tile.position.y = 0;
@@ -257,13 +474,13 @@
 		}
 
 		// 4b. Board Edge Coordinate Labels (Files a-h & Ranks 1-8)
-		const labelGeom = new THREE.PlaneGeometry(0.48, 0.48);
+		const labelGeom = new THREE.PlaneGeometry(0.44, 0.44);
 		const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 		const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
 		const labelY = 0.078;
-		const borderOffset = 4.33;
+		const borderOffset = 4.4;
 
-		// Files (a-h) along Rank 1 (z = -borderOffset) and Rank 8 (z = +borderOffset)
+		// Files (a-h) on South border (White player side, z = +borderOffset) and North border (Black side, z = -borderOffset)
 		for (let c = 0; c < 8; c++) {
 			const file = files[c];
 			const x = c - 3.5;
@@ -275,27 +492,27 @@
 				side: THREE.DoubleSide
 			});
 
-			// Rank 1 border (readable from White perspective)
-			const meshR1 = new THREE.Mesh(labelGeom, mat);
-			meshR1.rotation.x = -Math.PI / 2;
-			meshR1.rotation.z = Math.PI;
-			meshR1.position.set(x, labelY, -borderOffset);
-			scene.add(meshR1);
-			boardLabels.push(meshR1);
+			// South border (Rank 1 side, readable upright from White perspective)
+			const meshSouth = new THREE.Mesh(labelGeom, mat);
+			meshSouth.rotation.x = -Math.PI / 2;
+			meshSouth.rotation.z = 0;
+			meshSouth.position.set(x, labelY, borderOffset);
+			scene.add(meshSouth);
+			boardLabels.push(meshSouth);
 
-			// Rank 8 border (readable from Black perspective)
-			const meshR8 = new THREE.Mesh(labelGeom, mat);
-			meshR8.rotation.x = -Math.PI / 2;
-			meshR8.rotation.z = 0;
-			meshR8.position.set(x, labelY, borderOffset);
-			scene.add(meshR8);
-			boardLabels.push(meshR8);
+			// North border (Rank 8 side, facing inward toward board)
+			const meshNorth = new THREE.Mesh(labelGeom, mat);
+			meshNorth.rotation.x = -Math.PI / 2;
+			meshNorth.rotation.z = Math.PI;
+			meshNorth.position.set(x, labelY, -borderOffset);
+			scene.add(meshNorth);
+			boardLabels.push(meshNorth);
 		}
 
-		// Ranks (1-8) along File a (x = -borderOffset) and File h (x = +borderOffset)
+		// Ranks (1-8) along West border (File a, x = -borderOffset) and East border (File h, x = +borderOffset)
 		for (let r = 0; r < 8; r++) {
 			const rank = ranks[r];
-			const z = r - 3.5;
+			const z = 3.5 - r;
 			const tex = getLabelTexture(rank);
 			const mat = new THREE.MeshBasicMaterial({
 				map: tex,
@@ -304,21 +521,21 @@
 				side: THREE.DoubleSide
 			});
 
-			// File a border (readable from left side)
-			const meshFa = new THREE.Mesh(labelGeom, mat);
-			meshFa.rotation.x = -Math.PI / 2;
-			meshFa.rotation.z = -Math.PI / 2;
-			meshFa.position.set(-borderOffset, labelY, z);
-			scene.add(meshFa);
-			boardLabels.push(meshFa);
+			// West border (File a side, readable upright from camera)
+			const meshWest = new THREE.Mesh(labelGeom, mat);
+			meshWest.rotation.x = -Math.PI / 2;
+			meshWest.rotation.z = 0;
+			meshWest.position.set(-borderOffset, labelY, z);
+			scene.add(meshWest);
+			boardLabels.push(meshWest);
 
-			// File h border (readable from right side)
-			const meshFh = new THREE.Mesh(labelGeom, mat);
-			meshFh.rotation.x = -Math.PI / 2;
-			meshFh.rotation.z = Math.PI / 2;
-			meshFh.position.set(borderOffset, labelY, z);
-			scene.add(meshFh);
-			boardLabels.push(meshFh);
+			// East border (File h side, readable upright from camera)
+			const meshEast = new THREE.Mesh(labelGeom, mat);
+			meshEast.rotation.x = -Math.PI / 2;
+			meshEast.rotation.z = 0;
+			meshEast.position.set(borderOffset, labelY, z);
+			scene.add(meshEast);
+			boardLabels.push(meshEast);
 		}
 
 		// 5. Selection Ring, Check Ring, and Indicators
@@ -423,6 +640,12 @@
 			renderer.dispose();
 			container.innerHTML = '';
 			squareMeshes.length = 0;
+			for (const frame of boardFrameMeshes) {
+				scene.remove(frame);
+				frame.geometry.dispose();
+				(frame.material as THREE.Material).dispose();
+			}
+			boardFrameMeshes.length = 0;
 			pieceMeshMap.clear();
 			for (const mesh of moveIndicatorMeshes) {
 				scene.remove(mesh);
@@ -472,6 +695,12 @@
 			mesh.userData = { pieceType: piece.type, id: piece.id, row: piece.row, col: piece.col };
 			for (const child of mesh.children) {
 				child.userData = { row: piece.row, col: piece.col };
+			}
+
+			if (piece.color === 'white') {
+				mesh.rotation.y = Math.PI;
+			} else {
+				mesh.rotation.y = 0;
 			}
 
 			const targetPos = boardToWorld(piece.row, piece.col);
