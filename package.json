@@ -1,7 +1,16 @@
 {
-	"name": "chess-game-with-clock",
-	"private": true,
+	"name": "svelte-chess",
+	"description": "3D Chess Game with Dual Chess Clock, Multi-Level AI, and Grand Coach built with Svelte 5 and Three.js",
 	"version": "0.0.1",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/timscodebase/svelte-chess.git"
+	},
+	"bugs": {
+		"url": "https://github.com/timscodebase/svelte-chess/issues"
+	},
+	"homepage": "https://github.com/timscodebase/svelte-chess#readme",
+	"private": true,
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

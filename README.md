@@ -128,8 +128,8 @@ chess-clock/
 1. Clone the repository and install dependencies:
 
    ```bash
-   git clone <repository-url>
-   cd chess-clock
+   git clone https://github.com/timscodebase/svelte-chess.git
+   cd svelte-chess
    npm install
    ```
 
